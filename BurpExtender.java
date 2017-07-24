@@ -12,16 +12,14 @@ public class BurpExtender implements IBurpExtender, IScannerCheck
     private IBurpExtenderCallbacks callbacks;
     private IExtensionHelpers helpers;
 
-    // test / grep strings
+    // Regex String
     private static final byte[] GREP_STRING = "(href=\"|src=\"|location: )?(?<url>(https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|])".getBytes();
-    private static final byte[] INJ_TEST = "|".getBytes();
-    private static final byte[] INJ_ERROR = "Unexpected pipe".getBytes();
+    // Variables
     private String strresp = "";
     private List<String> matchlist = new ArrayList<String>();
-    //
-    // implement IBurpExtender
-    //
     
+    
+    // implement IBurpExtender
     @Override
     public void registerExtenderCallbacks(final IBurpExtenderCallbacks callbacks)
     {
@@ -37,11 +35,10 @@ public class BurpExtender implements IBurpExtender, IScannerCheck
         // register ourselves as a custom scanner check
         callbacks.registerScannerCheck(this);
         
-
     }
     
     // helper method to search a response for occurrences of a literal match string
-    // and return a list of start/end offsets
+    // and return a list of start/end offsets, saves in 'matchlist' an occurrence of every matching URL
     private List<int[]> getMatches(byte[] response, byte[] match)
     {
     	List<int[]> matches = new ArrayList<int[]>();
@@ -109,37 +106,10 @@ public class BurpExtender implements IBurpExtender, IScannerCheck
         else return null;
     }
 
-    
+    // Not Used
     @Override
     public List<IScanIssue> doActiveScan(IHttpRequestResponse baseRequestResponse, IScannerInsertionPoint insertionPoint)
     {
-        /*
-    	// make a request containing our injection test in the insertion point
-        byte[] checkRequest = insertionPoint.buildRequest(INJ_TEST);
-        IHttpRequestResponse checkRequestResponse = callbacks.makeHttpRequest(
-                baseRequestResponse.getHttpService(), checkRequest);
-
-        // look for matches of our active check grep string
-        List<int[]> matches = getMatches(checkRequestResponse.getResponse(), INJ_ERROR);
-        if (matches.size() > 0)
-        {
-            // get the offsets of the payload within the request, for in-UI highlighting
-            List<int[]> requestHighlights = new ArrayList<>(1);
-            requestHighlights.add(insertionPoint.getPayloadOffsets(INJ_TEST));
-
-            // report the issue
-            List<IScanIssue> issues = new ArrayList<>(1);
-            issues.add(new CustomScanIssue(
-                    baseRequestResponse.getHttpService(),
-                    helpers.analyzeRequest(baseRequestResponse).getUrl(), 
-                    new IHttpRequestResponse[] { callbacks.applyMarkers(checkRequestResponse, requestHighlights, matches) }, 
-                    "Pipe injection",
-                    "Submitting a pipe character returned the string: " + helpers.bytesToString(INJ_ERROR),
-                    "High"));
-            return issues;
-        }
-        else return null;
-        */
     	return this.doActiveScan(baseRequestResponse, insertionPoint);
     }
     
