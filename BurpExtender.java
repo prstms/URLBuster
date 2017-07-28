@@ -12,14 +12,12 @@ public class BurpExtender implements IBurpExtender, IScannerCheck
     private IBurpExtenderCallbacks callbacks;
     private IExtensionHelpers helpers;
 
-    // Regex String
-    private static final byte[] GREP_STRING = "(href=\"|src=\"|location: )?(?<url>(https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|])".getBytes();
-    // Variables
+    //TODO: aggiornare regex
+    private static final byte[] REGEX = "(href=\\s*\"|src=\\s*\"|location:\\s*)(?<url>(http(s?)|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|])".getBytes();
+
     private String strresp = "";
     private List<String> matchlist = new ArrayList<String>();
-    
-    
-    // implement IBurpExtender
+   
     @Override
     public void registerExtenderCallbacks(final IBurpExtenderCallbacks callbacks)
     {
@@ -38,11 +36,11 @@ public class BurpExtender implements IBurpExtender, IScannerCheck
     }
     
     // helper method to search a response for occurrences of a literal match string
-    // and return a list of start/end offsets, saves in 'matchlist' an occurrence of every matching URL
+    // and return a list of start/end offsets
     private List<int[]> getMatches(byte[] response, byte[] match)
     {
     	List<int[]> matches = new ArrayList<int[]>();
-        
+        matchlist = new ArrayList<String>(1);
         strresp = helpers.bytesToString(response);
         Pattern patt = Pattern.compile(helpers.bytesToString(match));
         Matcher matcher = patt.matcher(strresp);
@@ -54,15 +52,15 @@ public class BurpExtender implements IBurpExtender, IScannerCheck
             {
             matcher.find(start);
         	String singlematch = matcher.group("url");
-        	int found = 0;
+        	boolean found = false;
         	for (int i = 0; i < matchlist.size(); i++)
         	{
         		if (matchlist.get(i).equals(singlematch))
         			{
-        			found = 1;
+        			found = true;
         			}
         	}
-        	if (found == 0)
+        	if (found != true)
         	{
         		matchlist.add(singlematch);
         		matches.add(new int[] { matcher.start(), matcher.end() });
@@ -77,15 +75,21 @@ public class BurpExtender implements IBurpExtender, IScannerCheck
         return matches;
     }
 
-    //
     // implement IScannerCheck
-    // 
     @Override
     public List<IScanIssue> doPassiveScan(IHttpRequestResponse baseRequestResponse)
     {
-        // look for matches of our passive check grep string
-        List<int[]> matches = getMatches(baseRequestResponse.getResponse(), GREP_STRING);
-        if (matches.size() > 0)
+    	
+    	List<String> headers = helpers.analyzeResponse(baseRequestResponse.getResponse()).getHeaders();
+        boolean scannable = false;
+    	for (int k = 0; k < headers.size(); k++)
+        {
+        	if (headers.get(k).contains("text/html"))
+        		scannable = true;	
+        }
+    	// look for matches of our passive check grep string
+        List<int[]> matches = getMatches(baseRequestResponse.getResponse(), REGEX);
+        if (matches.size() > 0 && scannable == true)
         {
             // report the issue
             List<IScanIssue> issues = new ArrayList<>(1);
@@ -98,7 +102,7 @@ public class BurpExtender implements IBurpExtender, IScannerCheck
                     baseRequestResponse.getHttpService(),
                     helpers.analyzeRequest(baseRequestResponse).getUrl(), 
                     new IHttpRequestResponse[] { callbacks.applyMarkers(baseRequestResponse, null, matches) }, 
-                    "Links Found",
+                    "External Links Found",
                     "The response contains the following links: " + results,
                     "Information"));
             return issues;
@@ -106,7 +110,7 @@ public class BurpExtender implements IBurpExtender, IScannerCheck
         else return null;
     }
 
-    // Not Used
+    
     @Override
     public List<IScanIssue> doActiveScan(IHttpRequestResponse baseRequestResponse, IScannerInsertionPoint insertionPoint)
     {
@@ -130,9 +134,7 @@ public class BurpExtender implements IBurpExtender, IScannerCheck
     }
 }
 
-//
 // class implementing IScanIssue to hold our custom scan issue details
-//
 class CustomScanIssue implements IScanIssue
 {
     private IHttpService httpService;
